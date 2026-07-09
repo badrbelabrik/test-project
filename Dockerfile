@@ -1,3 +1,6 @@
+# ---------- Stage 1: Install PHP dependencies ----------
+FROM composer:2 AS composer
+
 WORKDIR /app
 
 COPY . .
@@ -8,7 +11,6 @@ RUN composer install \
     --optimize-autoloader \
     --no-interaction
 
-COPY . .
 RUN composer dump-autoload --optimize
 
 # ---------- Stage 2: Build frontend assets ----------
@@ -17,9 +19,11 @@ FROM node:22 AS node
 WORKDIR /app
 
 COPY package*.json ./
+
 RUN npm install
 
 COPY . .
+
 RUN npm run build
 
 # ---------- Stage 3: Production ----------
@@ -31,7 +35,6 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
     zip \
-    nginx \
     && docker-php-ext-install pdo pdo_pgsql zip
 
 WORKDIR /var/www/html
@@ -39,10 +42,8 @@ WORKDIR /var/www/html
 COPY --from=composer /app ./
 COPY --from=node /app/public/build ./public/build
 
-COPY . .
-
 RUN chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 8080
 
-CMD php artisan serve --host=0.0.0.0 --port=8080
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
